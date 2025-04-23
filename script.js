@@ -1,13 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
-    tg.expand();
+    tg.expand(); // Expand the Web App to full height
 
     // DOM Elements
     const loader = document.getElementById('loader');
     const appContainer = document.getElementById('app-container');
     const referenceImage = document.getElementById('reference-image');
     const canvas = document.getElementById('mask-canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }); // willReadFrequently for history/getImageData
     const brushSizeSlider = document.getElementById('brush-size-slider');
     const brushSizeValue = document.getElementById('brush-size-value');
     const confirmButton = document.getElementById('confirm-button');
@@ -21,88 +21,118 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State Variables
     let isDrawing = false;
-    let lastX = 0; // Canvas coordinates
-    let lastY = 0; // Canvas coordinates
+    let lastX = 0; // Canvas coordinates relative to the top-left of the canvas element itself
+    let lastY = 0; // Canvas coordinates relative to the top-left of the canvas element itself
     let brushSize = parseInt(brushSizeSlider.value, 10);
-    let history = [];
+    let history = []; // For undo functionality
+    let historyLimit = 20; // Max undo steps
     let originalImageWidth = 0;
     let originalImageHeight = 0;
-    let imageId = null;
+    let imageId = null; // Unique ID for this editing session
     let panzoomInstance = null;
     let currentTool = 'draw'; // 'draw' or 'pan'
 
     // --- Initialization ---
     function init() {
-        showLoader(true); errorMessage.textContent = '';
+        showLoader(true);
+        errorMessage.textContent = '';
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
-        const imageUrl = urlParams.get('imageUrl'); imageId = urlParams.get('imageId');
-        if (!imageUrl) { showError("Error: Image URL not provided."); showLoader(false); return; }
+        const imageUrl = urlParams.get('imageUrl');
+        imageId = urlParams.get('imageId');
+
+        if (!imageUrl || !imageId) {
+            showError("Ошибка: URL изображения или ID сессии не предоставлены.");
+            showLoader(false);
+            tg.close();
+            return;
+        }
 
         referenceImage.onload = () => {
-            originalImageWidth = referenceImage.naturalWidth; originalImageHeight = referenceImage.naturalHeight;
-            imageCanvasContainer.style.width = `${originalImageWidth}px`; imageCanvasContainer.style.height = `${originalImageHeight}px`;
-            canvas.width = originalImageWidth; canvas.height = originalImageHeight;
-            clearCanvas(); saveHistory();
-            setupPanzoom(); // Init Panzoom *after* dimensions are set
-            showLoader(false); tg.ready(); console.log(`Canvas initialized: ${canvas.width}x${canvas.height}`);
-            updateToolUI(); // Set initial tool state
+            originalImageWidth = referenceImage.naturalWidth;
+            originalImageHeight = referenceImage.naturalHeight;
+            imageCanvasContainer.style.width = `${originalImageWidth}px`;
+            imageCanvasContainer.style.height = `${originalImageHeight}px`;
+            canvas.width = originalImageWidth;
+            canvas.height = originalImageHeight;
+            clearCanvas();
+            saveHistory();
+            setupPanzoom();
+            showLoader(false);
+            tg.ready();
+            console.log(`Canvas initialized: ${canvas.width}x${canvas.height}. Image ID: ${imageId}`);
+            updateToolUI();
         };
-        referenceImage.onerror = () => { showError("Error: Failed to load reference image."); showLoader(false); };
+        referenceImage.onerror = () => {
+            showError("Ошибка: Не удалось загрузить изображение.");
+            showLoader(false);
+            tg.close();
+        };
         referenceImage.src = imageUrl;
-        setupEventListeners(); updateBrushSizeDisplay();
+
+        setupEventListeners();
+        updateBrushSizeDisplay();
     }
-    function showLoader(show) { loader.style.display = show ? 'block' : 'none'; appContainer.style.display = show ? 'none' : 'flex'; }
-    function showError(message) { errorMessage.textContent = message; console.error(message); }
+
+    function showLoader(show) {
+        loader.style.display = show ? 'block' : 'none';
+        appContainer.style.display = show ? 'none' : 'flex';
+    }
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        console.error(message);
+    }
 
     // --- Panzoom Setup ---
     function setupPanzoom() {
-        if (panzoomInstance) panzoomInstance.destroy();
-        panzoomInstance = Panzoom(imageCanvasContainer, { // Target the container
-            maxScale: 10, minScale: 0.3, contain: 'outside', canvas: true,
-            // Disable pan/zoom initially (draw tool is default)
-            disablePan: true, disableZoom: true,
-            // Start event handling - mainly for debugging or complex filters if needed
-             handleStartEvent: e => {
-                 // Allow Panzoom to handle touch pinch/multi-touch regardless of tool
-                 if (e.touches && e.touches.length > 1) {
-                     return; // Don't prevent default for pinch zoom
-                 }
-                 // If draw tool is active, don't let Panzoom handle single touch/mouse on the canvas
-                 if (currentTool === 'draw' && e.target === canvas) {
-                     return;
-                 }
+        if (panzoomInstance) {
+            panzoomInstance.destroy();
+        }
+        panzoomInstance = Panzoom(imageCanvasContainer, {
+            maxScale: 10,
+            minScale: 0.3,
+            contain: 'outside',
+            canvas: true,
+            disablePan: true, // Initially disabled for drawing tool
+            disableZoom: true, // Initially disabled for drawing tool
+            handleStartEvent: e => {
+                if (e.touches && e.touches.length > 1) {
+                    return; // Allow Panzoom pinch-zoom
+                }
+                // If draw tool is active, *ignore* event on canvas/image target, let our listeners handle it
+                if (currentTool === 'draw' && (e.target === canvas || e.target === referenceImage)) {
+                    // Explicitly do nothing here, preventing Panzoom from taking over
+                    return;
+                }
                  // If pan tool is active, prevent default browser actions (like image drag)
-                 // This allows Panzoom's panning to work smoothly.
                  if (currentTool === 'pan') {
-                     e.preventDefault();
-                     // e.stopPropagation(); // Usually not needed here
+                    e.preventDefault();
+                    // e.stopImmediatePropagation(); // Optional: if other listeners interfere
                  }
-             },
-             // Panzoom listens on the container, so clicks on canvas need separate check
-            // Panzoom 4+ doesn't have an easy "no drag button 1" option, we manage via disablePan/Zoom
+            },
         });
-        // Wheel zoom listener ON THE WRAPPER (viewport)
-        panzoomWrapper.addEventListener('wheel', handleWheelZoom, { passive: false }); // Needs false to prevent page scroll potentially
-        // Listen for panzoom changes (scale) to update cursor size
+
+        panzoomWrapper.addEventListener('wheel', handleWheelZoom, { passive: false });
         imageCanvasContainer.addEventListener('panzoomchange', handlePanzoomChange);
-        console.log("Panzoom initialized");
+        console.log("Panzoom initialized on #image-canvas-container");
     }
 
     function handleWheelZoom(event) {
-        // Zoom ONLY if pan tool is active
         if (currentTool === 'pan' && panzoomInstance) {
-            // Prevent default page scroll when zooming inside the wrapper
             event.preventDefault();
             panzoomInstance.zoomWithWheel(event);
         }
-        // If draw tool is active, allow default page scroll
     }
 
-    function handlePanzoomChange(event) { updateBrushSizeDisplay(); }
+    function handlePanzoomChange(event) {
+        updateBrushSizeDisplay();
+    }
 
     // --- Tool Switching ---
     function setTool(tool) {
-        if (tool === currentTool || (tool !== 'draw' && tool !== 'pan')) return;
+        if (tool === currentTool || (tool !== 'draw' && tool !== 'pan')) {
+            return;
+        }
         currentTool = tool;
         console.log("Tool changed to:", currentTool);
         updateToolUI();
@@ -110,166 +140,291 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateToolUI() {
         const isDraw = currentTool === 'draw';
-        toolDrawButton.classList.toggle('active', isDraw);
-        toolPanButton.classList.toggle('active', !isDraw);
-        drawingArea.classList.toggle('tool-draw', isDraw);
-        drawingArea.classList.toggle('tool-pan', !isDraw);
-        panzoomWrapper.classList.toggle('tool-draw', isDraw);
-        panzoomWrapper.classList.toggle('tool-pan', !isDraw);
+        const isPan = currentTool === 'pan';
 
-        // --- Enable/Disable Panzoom ---
+        toolDrawButton.classList.toggle('active', isDraw);
+        toolPanButton.classList.toggle('active', isPan);
+        drawingArea.classList.toggle('tool-draw', isDraw);
+        drawingArea.classList.toggle('tool-pan', isPan);
+        panzoomWrapper.classList.toggle('tool-draw', isDraw);
+        panzoomWrapper.classList.toggle('tool-pan', isPan);
+
         if (panzoomInstance) {
             panzoomInstance.setOptions({
-                disablePan: isDraw, // Disable panning when drawing
-                disableZoom: isDraw // Disable zooming when drawing
+                disablePan: isDraw,
+                disableZoom: isDraw // Panzoom's zoom, not browser pinch
             });
-             // Ensure touch-action is appropriate
-             // 'auto' allows Panzoom to control panning/zooming when enabled
-             // 'pinch-zoom pan-x pan-y' allows browser defaults when Panzoom is disabled
-             panzoomInstance.setStyle('touch-action', isDraw ? 'pinch-zoom pan-y pan-x' : 'none');
+            // Controls touch interaction: 'none' lets Panzoom handle fully, 'pinch...' allows browser defaults when Panzoom is disabled
+            panzoomInstance.setStyle('touch-action', isPan ? 'none' : 'pinch-zoom pan-y pan-x');
         }
-
-        // Update cursor visibility based on tool
-        updateCustomCursor(); // Call without event to just update visibility
+        updateCustomCursor();
     }
 
-
     // --- Canvas and Drawing Logic ---
-    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+    function clearCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
 
     function draw(e) {
+        // Check tool and drawing state *first*
         if (currentTool !== 'draw' || !isDrawing || !panzoomInstance) return;
-        const { x, y } = getCanvasCoordinates(e); // Use the corrected function
-        if (isNaN(x) || isNaN(y)) return;
-        ctx.strokeStyle = 'white'; ctx.lineWidth = brushSize; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke();
+
+        const { x, y } = getCanvasCoordinates(e);
+        if (isNaN(x) || isNaN(y)) return; // Invalid coordinates
+
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalCompositeOperation = 'source-over';
+
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
         [lastX, lastY] = [x, y];
     }
 
     function startDrawing(e) {
+        // Check tool *first*
         if (currentTool !== 'draw') return;
+
         isDrawing = true;
-        saveHistory(); // Save state before starting stroke
+        saveHistory();
+
         const { x, y } = getCanvasCoordinates(e);
-        if (isNaN(x) || isNaN(y)) { isDrawing = false; return; }
+        if (isNaN(x) || isNaN(y)) {
+            isDrawing = false; // Abort if coordinates are invalid
+            return;
+        }
         [lastX, lastY] = [x, y];
-        // Draw a dot for the start, especially for taps
+
+        // Draw initial dot
         ctx.fillStyle = 'white';
-        ctx.beginPath(); ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2); ctx.fill();
-        // We still call draw in case it's a drag start
-        // draw(e); // Might not be needed if arc is drawn
+        ctx.beginPath();
+        ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // console.log(`Start drawing at canvas coords: ${x.toFixed(1)}, ${y.toFixed(1)}`);
     }
 
-    function stopDrawing() { if (isDrawing) { isDrawing = false; } }
+    function stopDrawing() {
+        if (isDrawing) {
+            isDrawing = false;
+            // console.log("Stop drawing");
+        }
+    }
 
-    // --- Corrected Coordinate Calculation ---
+    // --- Coordinate Calculation (Crucial!) ---
     function getCanvasCoordinates(e) {
         if (!panzoomInstance) return { x: NaN, y: NaN };
 
-        // 1. Get event coordinates relative to the viewport
         let clientX, clientY;
-        if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
-        else { clientX = e.clientX; clientY = e.clientY; }
+        // Handle both touch and mouse events consistently
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
+        } else if (e.changedTouches && e.changedTouches.length > 0) { // Needed for touchend
+             clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY;
+        } else if (typeof e.clientX !== 'undefined') {
+            clientX = e.clientX; clientY = e.clientY;
+        } else {
+             return { x: NaN, y: NaN }; // No valid coordinates found
+        }
 
-        // 2. Get the bounding box of the panzoom viewport (the scrollable/pannable area)
         const wrapperRect = panzoomWrapper.getBoundingClientRect();
-
-        // 3. Calculate pointer position relative to the viewport's top-left corner
         const pointerX = clientX - wrapperRect.left;
         const pointerY = clientY - wrapperRect.top;
-
-        // 4. Get current Panzoom scale and pan offset
         const scale = panzoomInstance.getScale();
-        const pan = panzoomInstance.getPan(); // { x: currentPanX, y: currentPanY }
-
-        // 5. Apply the inverse transformation to get coordinates relative to the *unscaled, untranslated* content (the canvas)
-        // Formula: canvasCoord = (pointerCoord - panOffset) / scale
+        const pan = panzoomInstance.getPan();
         const canvasX = (pointerX - pan.x) / scale;
         const canvasY = (pointerY - pan.y) / scale;
 
-        // console.log(`Client: ${clientX.toFixed(1)},${clientY.toFixed(1)} | Wrapper: ${wrapperRect.left.toFixed(1)},${wrapperRect.top.toFixed(1)} | Relative: ${pointerX.toFixed(1)},${pointerY.toFixed(1)} | Pan: ${pan.x.toFixed(1)},${pan.y.toFixed(1)} | Scale: ${scale.toFixed(2)} | Canvas: ${canvasX.toFixed(1)},${canvasY.toFixed(1)}`);
+        // Debug log (Uncomment to trace coordinates)
+        // console.log(`ClientXY: ${clientX?.toFixed(1)},${clientY?.toFixed(1)} | WrapRect L,T: ${wrapperRect.left.toFixed(1)},${wrapperRect.top.toFixed(1)} | PtrXY: ${pointerX.toFixed(1)},${pointerY.toFixed(1)} | PanXY: ${pan.x.toFixed(1)},${pan.y.toFixed(1)} | Scale: ${scale.toFixed(2)} | CanvasXY: ${canvasX.toFixed(1)},${canvasY.toFixed(1)}`);
 
         return { x: canvasX, y: canvasY };
     }
 
-
     // --- History (Undo) Logic ---
     function saveHistory() {
-        if (history.length > 20) history.shift();
-        try { history.push(ctx.getImageData(0, 0, canvas.width, canvas.height)); }
-        catch (e) { console.error("History save error:", e); showError("Undo state error."); }
+        if (history.length >= historyLimit) {
+            history.shift();
+        }
+        try {
+            if (canvas.width > 0 && canvas.height > 0) {
+                 history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            } else { console.warn("Attempted history save with zero canvas dimensions."); }
+        } catch (e) {
+            console.error("History save error:", e); showError("Ошибка сохранения состояния для отмены.");
+        }
     }
-    function undoLast() { if (history.length > 1) { history.pop(); ctx.putImageData(history[history.length - 1], 0, 0); } else { console.log("Cannot undo."); } }
+    function undoLast() {
+        if (history.length > 1) {
+            history.pop();
+            const lastState = history[history.length - 1];
+            ctx.putImageData(lastState, 0, 0);
+            console.log("Undo performed. History size:", history.length);
+        } else { console.log("Cannot undo further."); }
+    }
 
     // --- Brush Size and Cursor Logic ---
     function updateBrushSizeDisplay() {
         brushSizeValue.textContent = `${brushSize}px`;
         const currentScale = panzoomInstance?.getScale() || 1;
-        const displaySize = Math.max(2, brushSize * currentScale); // Visual size based on zoom
+        const displaySize = Math.max(2, brushSize * currentScale);
         customCursor.style.width = `${displaySize}px`; customCursor.style.height = `${displaySize}px`;
     }
-    function handleBrushSizeChange() { brushSize = parseInt(brushSizeSlider.value, 10); updateBrushSizeDisplay(); }
-
-    function updateCustomCursor(e) { // Optional event arg
+    function handleBrushSizeChange() {
+        brushSize = parseInt(brushSizeSlider.value, 10);
+        updateBrushSizeDisplay();
+    }
+    function updateCustomCursor(e) {
         if (currentTool !== 'draw') { customCursor.style.display = 'none'; return; }
-        // If event is provided, update position
-        if(e) {
+        if (e) {
              const rect = drawingArea.getBoundingClientRect();
-             customCursor.style.left = `${e.clientX - rect.left}px`;
-             customCursor.style.top = `${e.clientY - rect.top}px`;
+             let clientX, clientY;
+             if (e.touches) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+             else { clientX = e.clientX; clientY = e.clientY; }
+             customCursor.style.left = `${clientX - rect.left}px`;
+             customCursor.style.top = `${clientY - rect.top}px`;
         }
-        customCursor.style.display = 'block'; // Ensure visible if draw tool is active
-        updateBrushSizeDisplay(); // Ensure size is correct
+        customCursor.style.display = 'block';
+        updateBrushSizeDisplay(); // Keep size updated
     }
 
     // --- Event Listeners Setup ---
     function setupEventListeners() {
-        // Tool buttons
         toolDrawButton.addEventListener('click', () => setTool('draw'));
         toolPanButton.addEventListener('click', () => setTool('pan'));
 
-        // Cursor visibility controlled by drawingArea
         drawingArea.addEventListener('mouseenter', updateCustomCursor);
-        drawingArea.addEventListener('mouseleave', () => { customCursor.style.display = 'none'; });
+        drawingArea.addEventListener('mouseleave', () => {
+            customCursor.style.display = 'none';
+            if (isDrawing) { // Stop drawing if mouse leaves area while drawing
+                stopDrawing();
+            }
+        });
         drawingArea.addEventListener('mousemove', updateCustomCursor);
 
-        // --- Drawing Listeners (on Canvas) ---
-        // These events will be effectively ignored by the draw() function if currentTool !== 'draw'
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw); // draw() checks tool internally
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseleave', stopDrawing);
+        // --- Drawing Listeners Directly on Canvas ---
+        canvas.addEventListener('mousedown', (e) => {
+            // Ensure correct tool is selected before starting
+            if (currentTool === 'draw') {
+                startDrawing(e);
+            }
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            // draw() function already checks for currentTool and isDrawing state
+            draw(e);
+        });
+        canvas.addEventListener('mouseup', (e) => {
+            // stopDrawing() checks internal state
+            stopDrawing();
+        });
+        // Handle mouse leaving the canvas itself (might be redundant with drawingArea check, but safe)
+        canvas.addEventListener('mouseleave', (e) => {
+             if (isDrawing) {
+                 stopDrawing();
+             }
+         });
 
-        // Touch listeners - use passive: true where possible to improve scroll performance
-        canvas.addEventListener('touchstart', (e) => { if (currentTool === 'draw' && e.touches.length === 1) startDrawing(e); }, { passive: true });
-        canvas.addEventListener('touchmove', (e) => { if (currentTool === 'draw' && isDrawing && e.touches.length === 1) { e.preventDefault(); draw(e); } }, { passive: false }); // preventDefault NEEDED here to stop scroll while drawing
-        canvas.addEventListener('touchend', stopDrawing);
-        canvas.addEventListener('touchcancel', stopDrawing);
+        // Touch events
+        canvas.addEventListener('touchstart', (e) => {
+            // Only handle single touch for drawing
+            if (currentTool === 'draw' && e.touches.length === 1) {
+                // Prevent default actions like scrolling *when starting a draw*
+                e.preventDefault();
+                startDrawing(e);
+            }
+            // Allow multi-touch (pinch zoom) default behavior or Panzoom handling
+        }, { passive: false }); // Need passive: false to allow preventDefault
 
-        // Controls
+        canvas.addEventListener('touchmove', (e) => {
+            // Check tool, state, and single touch *before* drawing and preventing default
+            if (currentTool === 'draw' && isDrawing && e.touches.length === 1) {
+                // Prevent page scroll/zoom ONLY when actively drawing with one finger
+                e.preventDefault();
+                draw(e);
+                updateCustomCursor(e); // Update cursor during touch move
+            }
+        }, { passive: false }); // Need passive: false to allow preventDefault
+
+        canvas.addEventListener('touchend', (e) => {
+            // Check if a drawing touch ended
+            if (isDrawing && e.changedTouches.length === 1) {
+                 stopDrawing();
+             }
+            // Maybe hide cursor?
+            // customCursor.style.display = 'none';
+         }, { passive: true }); // Can be passive as we don't prevent default here
+
+        canvas.addEventListener('touchcancel', (e) => {
+             if (isDrawing) {
+                 stopDrawing();
+             }
+             // customCursor.style.display = 'none';
+         }, { passive: true });
+
+
+        // --- Controls ---
         brushSizeSlider.addEventListener('input', handleBrushSizeChange);
-        document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLast(); } });
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key?.toLowerCase() === 'z') {
+                e.preventDefault(); undoLast();
+            }
+        });
         confirmButton.addEventListener('click', handleConfirm);
-        window.addEventListener('resize', () => { panzoomInstance?.resize(); updateBrushSizeDisplay(); });
+        window.addEventListener('resize', () => {
+            panzoomInstance?.resize(); updateBrushSizeDisplay();
+        });
     }
 
     // --- Confirmation and Data Sending ---
     function handleConfirm() {
-        console.log('Confirm button clicked'); errorMessage.textContent = ''; confirmButton.disabled = true; confirmButton.textContent = 'Обработка...'; // Changed text
-        try {
-            const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = 'black'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            const quality = 0.9; const dataUrl = canvas.toDataURL('image/jpeg', quality);
-            // Restore canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.putImageData(currentState, 0, 0); ctx.globalCompositeOperation = 'source-over';
-            const base64Data = dataUrl.split(',')[1]; const dataToSend = { maskData: base64Data, imageId: imageId };
-            tg.sendData(JSON.stringify(dataToSend)); console.log('Data sent to Telegram bot.');
-        } catch (error) {
-            console.error("Error exporting/sending mask:", error); showError("Не удалось экспортировать/отправить маску. Попробуйте снова."); // Changed text
-            confirmButton.disabled = false; confirmButton.textContent = 'Подтвердить'; // Changed text
-            ctx.globalCompositeOperation = 'source-over';
-        }
+        console.log('Confirm button clicked. Preparing mask data...');
+        errorMessage.textContent = '';
+        confirmButton.disabled = true;
+        confirmButton.textContent = 'Обработка...';
+
+        setTimeout(() => {
+            try {
+                const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Create final mask: White drawing on Black background
+                ctx.globalCompositeOperation = 'destination-over'; // Draw behind existing content
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Export as JPEG
+                const quality = 0.9;
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                // Restore canvas to state before adding background
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.putImageData(currentState, 0, 0);
+                ctx.globalCompositeOperation = 'source-over'; // Reset composite mode
+
+                const base64Data = dataUrl.split(',')[1];
+                if (!base64Data) throw new Error("Failed to extract Base64 data.");
+
+                const dataToSend = { maskData: base64Data, imageId: imageId };
+
+                tg.sendData(JSON.stringify(dataToSend));
+                console.log('Mask data prepared and sent to Telegram bot.');
+                // Optionally close after sending
+                // tg.close();
+
+            } catch (error) {
+                console.error("Error exporting or sending mask:", error);
+                showError(`Не удалось экспортировать/отправить маску: ${error.message}`);
+                confirmButton.disabled = false;
+                confirmButton.textContent = 'Подтвердить';
+                ctx.globalCompositeOperation = 'source-over'; // Reset on error too
+            }
+        }, 10);
     }
 
-    init(); // Start
+    // --- Start the application ---
+    init();
 });

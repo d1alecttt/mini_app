@@ -121,6 +121,7 @@ body {
     /* No max-width/height here - let it be its natural size inside the container */
     user-select: none; /* Prevent image selection */
     -webkit-user-drag: none; /* Prevent dragging image ghost */
+    pointer-events: none; /* Prevent image interaction that might interfere with canvas/panzoom */
 }
 
 #mask-canvas {

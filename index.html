@@ -9,16 +9,16 @@
     <script src='https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js'></script>
 </head>
 <body>
-    <div id="loader">Loading image...</div>
+    <div id="loader">Загрузка изображения...</div>
     <div id="app-container" style="display: none;">
         <!-- Drawing Area -->
         <div id="drawing-area">
              <!-- Tool Selection Buttons -->
             <div id="tool-selector">
-                <button id="tool-draw" class="tool-button active" title="Brush Tool (Draw)">🖌️</button>
-                <button id="tool-pan" class="tool-button" title="Pan Tool (Move/Zoom)">🖐️</button>
+                <button id="tool-draw" class="tool-button active" title="Кисть (Рисовать)">🖌️</button>
+                <button id="tool-pan" class="tool-button" title="Панорама (Двигать/Зум)">🖐️</button>
             </div>
-            <p>Draw Mask (Pan: Drag, Zoom: Scroll/Pinch - Use Pan Tool 🖐️)</p>
+            <p>Нарисуйте маску (Pan: Тянуть, Zoom: Скролл/Щипок - Используйте 🖐️)</p>
             <div id="panzoom-wrapper">
                 <div id="image-canvas-container">
                     <img id="reference-image" alt="Reference">
@@ -29,14 +29,14 @@
         </div>
 
         <div id="controls-panel">
-            <h3>Brush Settings</h3>
-            <label for="brush-size-slider">Thickness:</label>
+            <h3>Настройки кисти</h3>
+            <label for="brush-size-slider">Толщина:</label>
             <div class="slider-container">
                 <input type="range" id="brush-size-slider" min="1" max="100" value="20">
                 <span id="brush-size-value">20px</span>
             </div>
-            <div id="undo-info">Ctrl+Z to Undo</div>
-            <button id="confirm-button">Confirm</button>
+            <div id="undo-info">Ctrl+Z для отмены</div>
+            <button id="confirm-button">Подтвердить</button>
             <div id="error-message" class="error"></div>
         </div>
     </div>
