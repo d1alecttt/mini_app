@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mask Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Telegram WebApp script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="loading">Loading Image...</div>
+    <div class="app-container" style="display: none;">
+        <div class="canvas-container">
+            <img id="sourceImage" alt="Source Image" crossOrigin="anonymous">
+            <canvas id="maskCanvas"></canvas>
+            <div id="brushCursor"></div>
+        </div>
+        <div class="controls-panel">
+            <h3>Brush Settings</h3>
+            <div class="control-item">
+                <label for="thickness">Thickness: <span id="thicknessValue">15</span>px</label>
+                <input type="range" id="thickness" min="1" max="100" value="15">
+            </div>
+            <!-- Note: Blurriness, Hardness, Opacity, Smoothing are complex
+                 to implement directly on a simple 2D canvas stroke without
+                 advanced techniques or libraries. We'll focus on thickness
+                 and basic drawing for now. You can add these later if needed.
+            <div class="control-item">
+                <label for="blurriness">Blurriness: <span id="blurrinessValue">0</span></label>
+                <input type="range" id="blurriness" min="0" max="50" value="0">
+            </div>
+             <div class="control-item">
+                <label for="hardness">Hardness: <span id="hardnessValue">1</span></label>
+                <input type="range" id="hardness" min="0.1" max="1" step="0.1" value="1">
+            </div>
+             <div class="control-item">
+                <label for="opacity">Opacity: <span id="opacityValue">1</span></label>
+                <input type="range" id="opacity" min="0.1" max="1" step="0.1" value="1">
+            </div>
+            <div class="control-item">
+                <label for="smoothing">Smoothing: <span id="smoothingValue">0</span></label>
+                <input type="range" id="smoothing" min="0" max="10" value="0">
+            </div>
+            -->
+             <button id="resetBrush">Reset Brush</button>
+             <button id="undo">Undo (Ctrl+Z)</button>
+
+            <!-- The main action button is handled by Telegram's MainButton -->
+            <div id="status">Draw mask on the left image.</div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
