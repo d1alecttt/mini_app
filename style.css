@@ -1,0 +1,171 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 10px;
+    background-color: var(--tg-theme-bg-color, #ffffff); /* Use Telegram theme colors */
+    color: var(--tg-theme-text-color, #000000);
+    overscroll-behavior: none; /* Prevent pull-to-refresh */
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+#loader {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.2em;
+}
+
+#app-container {
+    display: flex;
+    flex-grow: 1; /* Allow container to fill available space */
+    gap: 15px;
+    height: calc(100% - 20px); /* Adjust based on body padding */
+    overflow: hidden; /* Prevent scrolling of the main container */
+}
+
+#reference-image-container,
+#canvas-container,
+#controls-panel {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--tg-theme-hint-color, #cccccc);
+    padding: 10px;
+    border-radius: 5px;
+    background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+}
+
+#reference-image-container {
+    flex-basis: 40%; /* Adjust as needed */
+    align-items: center;
+    overflow: hidden; /* Prevent image overflow */
+}
+
+#reference-image {
+    max-width: 100%;
+    max-height: 90%; /* Leave space for the title */
+    object-fit: contain; /* Scale image while preserving aspect ratio */
+}
+
+#canvas-container {
+    flex-basis: 40%; /* Adjust as needed */
+    position: relative; /* Needed for custom cursor positioning */
+    align-items: center;
+    justify-content: center; /* Center canvas if smaller than container */
+    overflow: auto; /* Allow scrolling if canvas is larger than container */
+}
+
+#mask-canvas {
+    border: 1px solid #555;
+    cursor: none; /* Hide default cursor */
+    touch-action: none; /* Prevent default touch actions like scrolling */
+    max-width: 100%; /* Ensure canvas doesn't overflow container */
+    max-height: 100%;
+}
+
+#custom-cursor {
+    position: absolute;
+    border: 1px solid white;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    pointer-events: none; /* Don't let it interfere with mouse events */
+    transform: translate(-50%, -50%); /* Center on cursor position */
+    display: none; /* Hide initially */
+    z-index: 10; /* Keep above canvas */
+}
+
+#controls-panel {
+    flex-basis: 20%; /* Adjust as needed */
+    min-width: 180px;
+    overflow-y: auto; /* Allow controls to scroll if needed */
+}
+
+#controls-panel h3 {
+    margin-top: 0;
+    text-align: center;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#brush-size-slider {
+    flex-grow: 1;
+}
+
+#brush-size-value {
+    min-width: 40px; /* Prevent layout shifts */
+    text-align: right;
+}
+
+#undo-info {
+    font-size: 0.8em;
+    color: var(--tg-theme-hint-color, #666666);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#confirm-button {
+    width: 100%;
+    padding: 12px;
+    font-size: 1em;
+    font-weight: bold;
+    /* Use Telegram button styles */
+    background-color: var(--tg-theme-button-color, #3390ec);
+    color: var(--tg-theme-button-text-color, #ffffff);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: auto; /* Push button to the bottom */
+}
+
+#confirm-button:hover {
+    opacity: 0.9;
+}
+
+.error {
+    color: var(--tg-theme-destructive-text-color, red);
+    margin-top: 10px;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+/* Hide scrollbar for canvas container */
+#canvas-container::-webkit-scrollbar {
+    display: none;
+}
+#canvas-container {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+    #app-container {
+        flex-direction: column;
+        height: auto; /* Allow vertical expansion */
+        overflow: visible;
+    }
+    #reference-image-container,
+    #canvas-container,
+    #controls-panel {
+        flex-basis: auto; /* Reset basis */
+        height: auto;
+    }
+     #canvas-container {
+        min-height: 300px; /* Ensure canvas has some minimum drawing height */
+     }
+    #reference-image-container {
+        max-height: 200px; /* Limit reference image height */
+    }
+    #controls-panel {
+        min-width: unset;
+    }
+    #confirm-button {
+        margin-top: 20px; /* Add some space before button */
+    }
+}
