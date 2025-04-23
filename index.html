@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mask Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="loader">Loading image...</div>
+    <div id="app-container" style="display: none;">
+        <!-- Combined Drawing Area -->
+        <div id="drawing-area">
+            <p>Draw Mask:</p>
+            <div id="image-canvas-wrapper">
+                <img id="reference-image" alt="Reference">
+                <canvas id="mask-canvas"></canvas>
+                <div id="custom-cursor"></div>
+            </div>
+        </div>
+
+        <div id="controls-panel">
+            <h3>Brush Settings</h3>
+            <label for="brush-size-slider">Thickness:</label>
+            <div class="slider-container">
+                <input type="range" id="brush-size-slider" min="1" max="100" value="20">
+                <span id="brush-size-value">20px</span>
+            </div>
+            <div id="undo-info">Ctrl+Z to Undo</div>
+            <button id="confirm-button">Confirm</button>
+            <div id="error-message" class="error"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 10px;
+    background-color: var(--tg-theme-bg-color, #ffffff);
+    color: var(--tg-theme-text-color, #000000);
+    overscroll-behavior: none;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+#loader {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.2em;
+}
+
+#app-container {
+    display: flex;
+    flex-grow: 1;
+    gap: 15px;
+    height: calc(100% - 20px);
+    overflow: hidden;
+}
+
+/* Updated Drawing Area */
+#drawing-area {
+    flex-basis: 75%; /* Adjust as needed */
+    border: 1px solid var(--tg-theme-hint-color, #cccccc);
+    padding: 10px;
+    border-radius: 5px;
+    background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center the wrapper */
+    justify-content: center; /* Center the wrapper */
+    overflow: auto; /* Allow scroll if image is large */
+}
+
+#image-canvas-wrapper {
+    position: relative; /* Crucial for absolute positioning of children */
+    width: fit-content; /* Size to image */
+    height: fit-content; /* Size to image */
+    margin: auto; /* Center block */
+}
+
+#reference-image {
+    display: block; /* Prevent extra space below image */
+    position: relative; /* Or static, but needs to be block */
+    z-index: 1; /* Below canvas */
+    max-width: 100%; /* Fit within drawing area */
+    max-height: 100%; /* Fit within drawing area */
+    object-fit: contain;
+}
+
+#mask-canvas {
+    position: absolute; /* Overlay */
+    top: 0;
+    left: 0;
+    z-index: 2; /* Above image */
+    cursor: none;
+    touch-action: none;
+    width: 100%; /* Match parent wrapper */
+    height: 100%; /* Match parent wrapper */
+    display: block; /* Make sure it covers fully */
+}
+
+#custom-cursor {
+    position: absolute;
+    border: 1px solid black; /* Make cursor visible on white */
+    background-color: rgba(0, 0, 0, 0.3); /* Darker cursor */
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    display: none;
+    z-index: 3; /* Above canvas */
+}
+
+#controls-panel {
+    flex-basis: 25%; /* Adjust as needed */
+    min-width: 180px;
+    border: 1px solid var(--tg-theme-hint-color, #cccccc);
+    padding: 10px;
+    border-radius: 5px;
+    background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+/* --- END OF Updated Drawing Area --- */
+
+
+#controls-panel h3 { margin-top: 0; text-align: center; }
+.slider-container { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+#brush-size-slider { flex-grow: 1; }
+#brush-size-value { min-width: 40px; text-align: right; }
+#undo-info { font-size: 0.8em; color: var(--tg-theme-hint-color, #666666); text-align: center; margin-bottom: 20px; }
+#confirm-button { width: 100%; padding: 12px; font-size: 1em; font-weight: bold; background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #ffffff); border: none; border-radius: 5px; cursor: pointer; margin-top: auto; }
+#confirm-button:hover { opacity: 0.9; }
+.error { color: var(--tg-theme-destructive-text-color, red); margin-top: 10px; font-size: 0.9em; text-align: center; }
+
+/* Hide scrollbar */
+#drawing-area::-webkit-scrollbar { display: none; }
+#drawing-area { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+    #app-container { flex-direction: column; height: auto; overflow: visible; }
+    #drawing-area, #controls-panel { flex-basis: auto; height: auto; }
+    #drawing-area { min-height: 300px; /* Ensure drawing area has height */ }
+    #controls-panel { min-width: unset; }
+    #confirm-button { margin-top: 20px; }
+}
