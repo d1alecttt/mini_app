@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mask Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Add Panzoom library via CDN -->
+    <script src='https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js'></script>
+</head>
+<body>
+    <div id="loader">Loading image...</div>
+    <div id="app-container" style="display: none;">
+        <!-- Drawing Area - Panzoom will target the wrapper inside -->
+        <div id="drawing-area">
+            <p>Draw Mask (Pan: Drag, Zoom: Scroll/Pinch):</p>
+            <!-- Wrapper for Panzoom -->
+            <div id="panzoom-wrapper">
+                 <!-- Container for image and canvas -->
+                <div id="image-canvas-container">
+                    <img id="reference-image" alt="Reference">
+                    <canvas id="mask-canvas"></canvas>
+                </div>
+            </div>
+             <!-- Custom cursor needs to be outside panzoom wrapper for positioning -->
+            <div id="custom-cursor"></div>
+        </div>
+
+        <div id="controls-panel">
+            <h3>Brush Settings</h3>
+            <label for="brush-size-slider">Thickness:</label>
+            <div class="slider-container">
+                <input type="range" id="brush-size-slider" min="1" max="100" value="20">
+                <span id="brush-size-value">20px</span>
+            </div>
+            <div id="undo-info">Ctrl+Z to Undo</div>
+            <button id="confirm-button">Confirm</button>
+            <div id="error-message" class="error"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
