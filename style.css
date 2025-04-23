@@ -1,0 +1,248 @@
+/* style.css */
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 10px;
+    background-color: var(--tg-theme-bg-color, #ffffff); /* Use Telegram theme colors */
+    color: var(--tg-theme-text-color, #000000);
+    overscroll-behavior: none; /* Prevent pull-to-refresh */
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Ensure body takes full viewport height */
+    box-sizing: border-box;
+    overflow: hidden; /* Prevent body scroll */
+}
+
+#loader {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.2em;
+}
+
+#app-container {
+    display: flex;
+    flex-grow: 1; /* Allow container to fill available space */
+    gap: 15px;
+    height: calc(100% - 20px); /* Full height minus body padding */
+    overflow: hidden; /* Prevent container scroll */
+}
+
+/* Drawing Area */
+#drawing-area {
+    flex-basis: 75%; /* Adjust width proportion as needed */
+    border: 1px solid var(--tg-theme-hint-color, #cccccc);
+    border-radius: 5px;
+    background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    display: flex; /* Use flexbox to manage children */
+    flex-direction: column; /* Stack title and wrapper */
+    overflow: hidden; /* CRUCIAL: Prevent drawing area itself from scrolling */
+    position: relative; /* Needed for absolute positioning of cursor and tool selector */
+}
+#drawing-area p {
+    text-align: center;
+    margin: 5px 0;
+    flex-shrink: 0; /* Prevent title from shrinking */
+    font-size: 0.9em;
+    color: var(--tg-theme-hint-color, #666666);
+}
+
+/* Tool Selector */
+#tool-selector {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 15; /* Above canvas content, below custom cursor */
+    background: rgba(240, 240, 240, 0.8); /* Semi-transparent background */
+    border-radius: 5px;
+    padding: 3px;
+    display: flex;
+    gap: 3px;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+.tool-button {
+    background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    border: 1px solid var(--tg-theme-hint-color, #cccccc);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 1.2em; /* Adjust icon size */
+    cursor: pointer;
+    line-height: 1; /* Prevent extra spacing around emoji */
+    transition: background-color 0.2s ease;
+}
+.tool-button:hover {
+    background: var(--tg-theme-hint-color, #cccccc);
+}
+.tool-button.active {
+    background: var(--tg-theme-button-color, #3390ec);
+    color: var(--tg-theme-button-text-color, #ffffff);
+    border-color: var(--tg-theme-button-color, #3390ec);
+}
+
+
+/* Wrapper for Panzoom - takes up available space */
+#panzoom-wrapper {
+    flex-grow: 1; /* Allow wrapper to fill space */
+    overflow: hidden; /* Panzoom needs this */
+    display: flex; /* Center the content inside */
+    align-items: center;
+    justify-content: center;
+    /* Cursor style is set by tool-draw/tool-pan classes */
+    /* Allow browser pinch-zoom and panning when Panzoom is disabled (draw tool active) */
+    /* Use 'none' when pan tool is active to let Panzoom control fully */
+    touch-action: pinch-zoom pan-y pan-x; /* Default: allow browser handling */
+    position: relative; /* Ensure it establishes a stacking context */
+}
+/* Change cursor based on tool */
+#panzoom-wrapper.tool-draw {
+    cursor: none; /* Hide default cursor when drawing tool is active */
+    /* touch-action remains pinch-zoom pan-y pan-x as Panzoom is disabled */
+}
+#panzoom-wrapper.tool-pan {
+    cursor: grab; /* Grab cursor for panning tool */
+    touch-action: none; /* Let Panzoom handle touch when pan tool is active */
+}
+#panzoom-wrapper.tool-pan:active { /* While panning */
+    cursor: grabbing;
+}
+
+
+/* Container holds image and canvas at original size */
+#image-canvas-container {
+    position: relative; /* For canvas overlay */
+    width: fit-content; /* Size determined by image */
+    height: fit-content; /* Size determined by image */
+    /* Panzoom will handle transform for panning/zooming */
+}
+
+#reference-image {
+    display: block; /* Prevent extra space below image */
+    position: relative; /* Stacking context */
+    z-index: 1; /* Below canvas */
+    /* No max-width/height here - let it be its natural size inside the container */
+    user-select: none; /* Prevent image selection */
+    -webkit-user-drag: none; /* Prevent dragging image ghost */
+}
+
+#mask-canvas {
+    position: absolute; /* Overlay */
+    top: 0;
+    left: 0;
+    z-index: 2; /* Above image */
+    /* Cursor is handled by the wrapper based on tool */
+    /* touch-action is handled by the wrapper based on tool */
+    width: 100%; /* Match parent container size */
+    height: 100%; /* Match parent container size */
+    display: block; /* Ensure it covers fully */
+}
+
+/* Custom Cursor - positioned relative to drawing-area */
+#custom-cursor {
+    position: absolute;
+    border: 1px solid black; /* Make cursor visible on white/image */
+    background-color: rgba(0, 0, 0, 0.3); /* Darker cursor */
+    border-radius: 50%;
+    pointer-events: none; /* Don't let it interfere with mouse/touch events */
+    transform: translate(-50%, -50%); /* Center on cursor position */
+    display: none; /* Hide initially and when pan tool is active */
+    z-index: 20; /* Highest visual element */
+    mix-blend-mode: difference; /* Helps visibility on different backgrounds */
+}
+/* Hide custom cursor when pan tool is active */
+#drawing-area.tool-pan #custom-cursor {
+    display: none !important; /* Force hide */
+}
+
+/* Controls Panel */
+#controls-panel {
+    flex-basis: 25%; /* Adjust width proportion */
+    min-width: 180px;
+    border: 1px solid var(--tg-theme-hint-color, #cccccc);
+    padding: 10px;
+    border-radius: 5px;
+    background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto; /* Allow controls to scroll if needed */
+}
+#controls-panel h3 {
+    margin-top: 0;
+    text-align: center;
+    margin-bottom: 15px;
+}
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+#brush-size-slider {
+    flex-grow: 1;
+    cursor: pointer;
+}
+#brush-size-value {
+    min-width: 40px; /* Prevent layout shifts */
+    text-align: right;
+    font-size: 0.9em;
+}
+#undo-info {
+    font-size: 0.8em;
+    color: var(--tg-theme-hint-color, #666666);
+    text-align: center;
+    margin-bottom: 20px;
+}
+#confirm-button {
+    width: 100%;
+    padding: 12px;
+    font-size: 1em;
+    font-weight: bold;
+    /* Use Telegram button styles */
+    background-color: var(--tg-theme-button-color, #3390ec);
+    color: var(--tg-theme-button-text-color, #ffffff);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: auto; /* Push button to the bottom */
+}
+#confirm-button:hover {
+    opacity: 0.9;
+}
+#confirm-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.error {
+    color: var(--tg-theme-destructive-text-color, red);
+    margin-top: 10px;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+    #app-container {
+        flex-direction: column;
+        height: auto; /* Allow vertical expansion */
+        overflow: visible; /* Allow scrolling on main container if needed */
+    }
+    #drawing-area {
+        flex-basis: 60vh; /* Give drawing area significant height on mobile */
+        min-height: 300px; /* Ensure drawing area has some minimum drawing height */
+    }
+     #controls-panel {
+        flex-basis: auto; /* Let controls take needed height */
+        height: auto;
+        min-width: unset;
+     }
+    #confirm-button {
+        margin-top: 20px; /* Add some space before button */
+    }
+    /* Adjust tool selector for smaller screens */
+    #tool-selector {
+        padding: 2px;
+        gap: 2px;
+    }
+    .tool-button {
+        font-size: 1em; /* Slightly smaller icons/buttons */
+        padding: 4px 6px;
+    }
+}
